@@ -23,23 +23,27 @@ class ViewController: UIViewController {
     }
 }
 
-class AbstractComponent<T> {
+class Component<T> {
     let props: T
     let key: String?
-    let children: [ AbstractComponent<Any> ]
+    let children: [ Component<Any> ]
 
-    init(_ props: T? = nil, _ key: String? = nil, _ children: [ AbstractComponent<Any>? ]? = nil) {
+    init(_ props: T? = nil, _ key: String? = nil, _ children: [ Component<Any>? ]? = nil) {
         self.props = props!
         self.key = key
         self.children = self.normalizeChildren(children)
     }
 
-    private func normalizeChildren(_ children: [ AbstractComponent<Any>? ]?) -> [ AbstractComponent<Any> ] {
+    private func normalizeChildren(_ children: [ Component<Any>? ]?) -> [ Component<Any> ] {
         return [];
+    }
+
+    open func render() -> Component<Any>? {
+        return nil
     }
 }
 
-class NativeComponent<T>: AbstractComponent<T> {
+class NativeComponent<T>: Component<T> {
     open func createView() -> UIView? {
         return nil
     }
@@ -57,40 +61,44 @@ class VirtualLabel: NativeComponent<LabelProps> {
     }
 }
 
-class Component<T>: AbstractComponent<T> {
-    open func render() -> AbstractComponent<Any>? {
-        return nil
-    }
-}
-
 struct LabelWrapperProps {
     let butts: String
 }
 
 class LabelWrapper: Component<LabelWrapperProps> {
-    override func render() -> AbstractComponent<Any> {
+    override func render() -> Component<Any> {
+        // TODO: Why is VirtualLabel not assignable to Component<Any>?
         return VirtualLabel(LabelProps(text: self.props.butts))
     }
 }
 
+
 class SimpleWrapper: Component<Void> {
-    override func render() -> AbstractComponent<Any>? {
+    override func render() -> Component<Any>? {
         return self.children[0];
     }
 }
 
 struct Tree {
-    let node: NativeComponent<Any>
+    let type: Component<Any>.Type
+    let node: Component<Any>
     let children: [ Tree ]
+}
+
+func compact<T>(array: [ T? ]) -> [ T ] {
+    return array.filter({ t in t != nil }) as! [ T ]
 }
 
 func render(component: Component<Any>) -> Tree? {
     let node = component.render()
-
     if (node == nil) {
         return nil
-    } else if (node is NativeComponent) {
-        return Tree(node: node as! NativeComponent<Any>, children: node!.children.map(render))
     } else {
+        return Tree(
+            type: type(of: node!),
+            node: node as! NativeComponent<Any>,
+            children: compact(array: node!.children.map(render))
+        )
     }
+
 }
